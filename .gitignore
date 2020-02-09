@@ -1,2 +1,18 @@
+# Sbt
+project/project/*
+project/target/*
+target/
+logs/
+
+# Intelij Idea
+.idea/
+
+# Git
+**/*.orig
+
+# Mac OS
+.DS_Store
+
+# Binaries
 *.class
-*.log
+
