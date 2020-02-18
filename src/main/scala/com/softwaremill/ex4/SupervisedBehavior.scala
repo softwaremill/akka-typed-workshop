@@ -9,19 +9,22 @@ object SupervisedBehavior {
   sealed trait Command
   case class Request(param: Int, replyTo: ActorRef[ParentResult]) extends Command
 
-  sealed trait ParentResult
-  case class Response(param: Int)      extends ParentResult
-  case class ParentFailure(param: Int) extends ParentResult
-
   private sealed trait HandleWorkerResult         extends Command
   private case class HandleWorkerResponse(i: Int) extends HandleWorkerResult
   private case class HandleWorkerFailure(i: Int)  extends HandleWorkerResult
 
+  sealed trait ParentResult
+  case class Response(param: Int)      extends ParentResult
+  case class ParentFailure(param: Int) extends ParentResult
+
   lazy val behavior: Behavior[Command] =
     Behaviors
       .setup { context =>
+        val workerBehavior = Behaviors.supervise(Worker.behavior).onFailure(SupervisorStrategy.restart)
         context.log.info("Parent setup")
-        val worker = context.spawn(Worker.behavior, "worker")
+
+        val worker = context.spawn(workerBehavior, "worker")
+
         val workerResponseMapper: ActorRef[Worker.PartialWorkResponse] =
           context.messageAdapter {
             case Worker.PartialWorkResult(param) => HandleWorkerResponse(param)
@@ -30,16 +33,19 @@ object SupervisedBehavior {
 
         lazy val handleRequests: Behavior[Command] =
           Behaviors
-            .receiveMessage[Command] {
+            .receiveMessage {
               case Request(param, replyTo) =>
                 context.log.info(s"Delegating work ($param) to a child actor")
                 worker ! Worker.DoPartialWork(param, workerResponseMapper)
                 working(replyTo)
+              case r: HandleWorkerResult =>
+                context.log.error(s"Unexpected result when parent actor is idle: $r")
+                Behaviors.same
             }
 
         def working(respondTo: ActorRef[ParentResult]): Behavior[Command] =
           Behaviors
-            .receiveMessage[Command] {
+            .receiveMessage {
               case HandleWorkerResponse(i) =>
                 respondTo ! Response(i)
                 handleRequests
@@ -77,6 +83,14 @@ object Worker {
             context.log.info("Partial job done, returning result")
             val calculatedResult = param * 2
             replyTo ! PartialWorkResult(calculatedResult)
+            Behaviors.same
+        }
+        .receiveSignal {
+          case (context, PostStop) =>
+            context.log.info("Stopping worker actor.")
+            Behaviors.same
+          case (context, PreRestart) =>
+            context.log.info("Actor cleanup and restart.")
             Behaviors.same
         }
     }
