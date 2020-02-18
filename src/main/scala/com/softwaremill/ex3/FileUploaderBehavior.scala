@@ -10,7 +10,7 @@ object FileUploaderBehavior {
   sealed trait Command
   case class UploadFile(replyTo: ActorRef[Response]) extends Command
   case class GetStatus(replyTo: ActorRef[Response])  extends Command
-  case object FinishUploading                        extends Command
+  private case object FinishUploading                extends Command
 
   sealed trait Response
   case object UploadingInProgress extends Response
@@ -28,7 +28,7 @@ object FileUploaderBehavior {
     }
   }
 
-  def uploadingInProgress(replyTo: ActorRef[Response], fileManager: FileManager): Behavior[Command] = Behaviors.receiveMessage {
+  private def uploadingInProgress(replyTo: ActorRef[Response], fileManager: FileManager): Behavior[Command] = Behaviors.receiveMessage {
     case FinishUploading =>
       replyTo ! FileUploaded
       uploadingFinished(fileManager)
@@ -40,7 +40,7 @@ object FileUploaderBehavior {
       Behaviors.same
   }
 
-  def uploadingFinished(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
+  private def uploadingFinished(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
     Behaviors.receiveMessage {
       case GetStatus(replyTo) =>
         replyTo ! FileUploaded
