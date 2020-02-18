@@ -25,6 +25,8 @@ object FileUploaderBehavior {
       case GetStatus(replyTo) =>
         replyTo ! UploadingNotStarted
         Behaviors.same
+      case FinishUploading =>
+        Behaviors.ignore
     }
   }
 
@@ -41,7 +43,7 @@ object FileUploaderBehavior {
   }
 
   private def uploadingFinished(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
-    Behaviors.receiveMessage {
+    Behaviors.receiveMessagePartial {
       case GetStatus(replyTo) =>
         replyTo ! FileUploaded
         Behaviors.same
