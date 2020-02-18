@@ -51,4 +51,15 @@ class SupervisedBehaviorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       probe.expectMessage(Response(46))
     }
   }
+
+  it should "restart child actor together with parent actor" in {
+    // given
+    val actor = testKit.spawn(SupervisedBehavior.behavior, "parent3")
+    val probe = createTestProbe[ParentResult]()
+
+    // when & then
+    LoggingTestKit.info("Restarting parent actor").expect {
+      actor ! Request(8, probe.ref)
+    }
+  }
 }
