@@ -1,7 +1,7 @@
 package com.softwaremill.ex4
 
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed._
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 
 object SupervisedBehavior {
   type SignalHandler[T] = PartialFunction[(ActorContext[T], Signal), Behavior[T]]
@@ -21,7 +21,10 @@ object SupervisedBehavior {
     Behaviors
       .setup { context =>
         context.log.info("Parent setup")
-        val worker = context.spawn(Worker.behavior, "worker")
+        val restartingWorker = Behaviors.supervise(Worker.behavior).onFailure(SupervisorStrategy.restart)
+
+        val worker = context.spawn(restartingWorker, "worker")
+
         val workerResponseMapper: ActorRef[Worker.PartialWorkResponse] =
           context.messageAdapter {
             case Worker.PartialWorkResult(param) => HandleWorkerResponse(param)
