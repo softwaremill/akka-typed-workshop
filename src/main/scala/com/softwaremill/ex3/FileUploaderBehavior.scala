@@ -8,13 +8,14 @@ import scala.util.{Failure, Success}
 
 object FileUploaderBehavior {
   sealed trait Command
-  case class UploadFile(replyTo: ActorRef[Response]) extends Command
-  case class GetStatus(replyTo: ActorRef[Response])  extends Command
-  private case object FinishUploading                extends Command
+  case class UploadFile(replyTo: ActorRef[FileUploadResponse]) extends Command
+  case class GetStatus(replyTo: ActorRef[Response])            extends Command
+  private case object FinishUploading                          extends Command
 
   sealed trait Response
-  case object UploadingInProgress extends Response
-  case object FileUploaded        extends Response
+  sealed trait FileUploadResponse extends Response
+  case object UploadingInProgress extends FileUploadResponse
+  case object FileUploaded        extends FileUploadResponse
   case object UploadingNotStarted extends Response
 
   def waitingForStart(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
@@ -30,17 +31,18 @@ object FileUploaderBehavior {
     }
   }
 
-  private def uploadingInProgress(replyTo: ActorRef[Response], fileManager: FileManager): Behavior[Command] = Behaviors.receiveMessage {
-    case FinishUploading =>
-      replyTo ! FileUploaded
-      uploadingFinished(fileManager)
-    case UploadFile(replyTo) =>
-      replyTo ! UploadingInProgress
-      Behaviors.same
-    case GetStatus(replyTo) =>
-      replyTo ! UploadingInProgress
-      Behaviors.same
-  }
+  private def uploadingInProgress(replyTo: ActorRef[FileUploadResponse], fileManager: FileManager): Behavior[Command] =
+    Behaviors.receiveMessage {
+      case FinishUploading =>
+        replyTo ! FileUploaded
+        uploadingFinished(fileManager)
+      case UploadFile(replyTo) =>
+        replyTo ! UploadingInProgress
+        Behaviors.same
+      case GetStatus(replyTo) =>
+        replyTo ! UploadingInProgress
+        Behaviors.same
+    }
 
   private def uploadingFinished(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
     Behaviors.receiveMessagePartial {
