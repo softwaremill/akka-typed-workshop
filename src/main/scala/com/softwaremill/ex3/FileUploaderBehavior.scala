@@ -1,6 +1,6 @@
 package com.softwaremill.ex3
 
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import com.softwaremill.ex2.FileManager
 
@@ -18,24 +18,22 @@ object FileUploaderBehavior {
   case object FileUploaded        extends FileUploadResponse
   case object UploadingNotStarted extends Response
 
-  def waitingForStart(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
-    Behaviors.receiveMessage {
+  def apply(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
+    def waitingForStart(): Behavior[Command] = Behaviors.receiveMessage {
       case UploadFile(replyTo) =>
-        startUpload(fileManager, context)
-        uploadingInProgress(replyTo, fileManager)
+        startUpload()
+        uploadingInProgress(replyTo)
       case GetStatus(replyTo) =>
         replyTo ! UploadingNotStarted
         Behaviors.same
       case FinishUploading =>
         Behaviors.ignore
     }
-  }
 
-  private def uploadingInProgress(replyTo: ActorRef[FileUploadResponse], fileManager: FileManager): Behavior[Command] =
-    Behaviors.receiveMessage {
+    def uploadingInProgress(replyTo: ActorRef[FileUploadResponse]): Behavior[Command] = Behaviors.receiveMessage {
       case FinishUploading =>
         replyTo ! FileUploaded
-        uploadingFinished(fileManager)
+        uploadingFinished()
       case UploadFile(replyTo) =>
         replyTo ! UploadingInProgress
         Behaviors.same
@@ -44,21 +42,22 @@ object FileUploaderBehavior {
         Behaviors.same
     }
 
-  private def uploadingFinished(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
-    Behaviors.receiveMessagePartial {
+    def uploadingFinished(): Behavior[Command] = Behaviors.receiveMessagePartial {
       case GetStatus(replyTo) =>
         replyTo ! FileUploaded
         Behaviors.same
       case UploadFile(replyTo) =>
-        startUpload(fileManager, context)
-        uploadingInProgress(replyTo, fileManager)
+        startUpload()
+        uploadingInProgress(replyTo)
     }
-  }
 
-  private def startUpload(fileManager: FileManager, context: ActorContext[Command]): Unit = {
-    context.pipeToSelf(fileManager.startUpload()) {
-      case Success(_)         => FinishUploading
-      case Failure(exception) => throw exception //some error handling here
+    def startUpload(): Unit = {
+      context.pipeToSelf(fileManager.startUpload()) {
+        case Success(_)         => FinishUploading
+        case Failure(exception) => throw exception //some error handling here
+      }
     }
+
+    waitingForStart
   }
 }
