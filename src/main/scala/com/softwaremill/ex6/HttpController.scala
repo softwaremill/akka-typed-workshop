@@ -17,8 +17,10 @@ class HttpController(system: ActorSystem[SpawnProtocol.Command]) {
     val createAdder: Future[ActorRef[Adder.Add]] =
       system.ask(SpawnProtocol.Spawn(behavior = Adder(), name = "adder", props = Props.empty, _))
 
-    //TODO ask adder
-    ???
+    for {
+      adder  <- createAdder
+      result <- adder.ask[Adder.Result](Adder.Add(request.a, request.b, _))
+    } yield Response(result.value)
   }
 }
 
