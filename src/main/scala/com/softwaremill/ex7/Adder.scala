@@ -9,11 +9,14 @@ object Adder {
   case class Result(value: Int)
 
   def apply(): Behavior[Add] = Behaviors.logMessages {
-    Behaviors
-      .receiveMessage[Add] {
-        case Add(a, b, replyTo) =>
-          replyTo ! Result(a + b)
-          Behaviors.same
-      }
+    Behaviors.setup { context =>
+      context.system.receptionist ! Receptionist.Register(AdderKey, context.self)
+      Behaviors
+        .receiveMessage[Add] {
+          case Add(a, b, replyTo) =>
+            replyTo ! Result(a + b)
+            Behaviors.same
+        }
+    }
   }
 }

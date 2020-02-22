@@ -19,7 +19,7 @@ class HttpController(system: ActorSystem[Nothing]) {
     system.receptionist.ask[Receptionist.Listing](Receptionist.Find(Adder.AdderKey, _)).flatMap {
       case Adder.AdderKey.Listing(listing) =>
         listing.headOption match {
-          case Some(adder) => ??? //TODO ask the adder
+          case Some(adder) => adder.ask[Adder.Result](Adder.Add(request.a, request.b, _)).map(Response(_))
           case None        => throw new IllegalStateException("Adder is missing")
         }
     }
