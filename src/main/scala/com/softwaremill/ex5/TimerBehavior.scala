@@ -36,6 +36,8 @@ object TimerBehavior {
         Behaviors.receiveMessage[Command] {
           case PingMsg =>
             context.log.info("Self ping received (exercise 5-2)!")
+            timers.startSingleTimer(CancellablePingTimerKey, PingMsg, 300.millis)
+            // or timers.cancel(CancellablePingTimerKey)
             Behaviors.same
           case CancellablePing =>
             context.log.info("This should not happen!")
