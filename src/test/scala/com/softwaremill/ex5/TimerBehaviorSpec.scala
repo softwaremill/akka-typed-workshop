@@ -15,4 +15,13 @@ class TimerBehaviorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike w
         testKit.spawn(TimerBehavior.behavior, "timer1")
       }
   }
+
+  it should "cancel and override self message with same key" in {
+    LoggingTestKit
+      .info("Self ping received (exercise 5-2)!")
+      .withOccurrences(4)
+      .expect {
+        testKit.spawn(TimerBehavior.behavior2, "timer2")
+      }
+  }
 }
