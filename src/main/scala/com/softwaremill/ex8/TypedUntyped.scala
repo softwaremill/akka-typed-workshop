@@ -3,6 +3,8 @@ package com.softwaremill.ex8
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.typed.scaladsl.adapter._
+import com.softwaremill.ex8.Worker.DoPartialWork
 
 sealed trait Command
 case class DoWork(param: Int) extends Command
@@ -12,9 +14,11 @@ object TypedUntyped {
   val behavior: Behavior[Command] = Behaviors
     .setup[Command] { context =>
       context.log.info("Parent setup")
-      // TODO
+      val workerChild = context.actorOf(Worker.props, "worker")
+
       Behaviors.receiveMessage {
         case DoWork(param) =>
+          workerChild ! DoPartialWork(param)
           Behaviors.same
       }
     }
@@ -27,6 +31,8 @@ object Worker {
   sealed trait PartialWorkResponse
 
   case class PartialWorkResult(param: Int) extends PartialWorkResponse
+
+  def props: Props = Props(new WorkerActor())
 
   class WorkerActor extends Actor with ActorLogging {
 
