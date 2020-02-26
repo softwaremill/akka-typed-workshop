@@ -13,4 +13,14 @@ class TypedUntypedSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike wi
       testKit.stop(actor)
     }
   }
+
+  it should "communicate with untyped child actor" in {
+    // given
+    val actor = testKit.spawn(TypedUntyped.behavior)
+
+    // then & when
+    LoggingTestKit.info("Parent received result: 28").expect {
+      actor ! DoWork(14)
+    }
+  }
 }

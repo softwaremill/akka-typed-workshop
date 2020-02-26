@@ -1,13 +1,13 @@
 package com.softwaremill.ex8
 
-import akka.actor.typed.Behavior
+import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.actor.typed.scaladsl.adapter._
-import com.softwaremill.ex8.Worker.DoPartialWork
 
 sealed trait Command
-case class DoWork(param: Int) extends Command
+case class DoWork(param: Int)                extends Command
+case class HandleWorkerResponse(result: Int) extends Command
 
 object TypedUntyped {
 
@@ -18,7 +18,11 @@ object TypedUntyped {
 
       Behaviors.receiveMessage {
         case DoWork(param) =>
-          workerChild ! DoPartialWork(param)
+          // TODO
+          Behaviors.same
+
+        case HandleWorkerResponse(result) =>
+          context.log.info(s"Parent received result: $result")
           Behaviors.same
       }
     }
@@ -38,6 +42,7 @@ object Worker {
 
     override def receive = {
       case DoPartialWork(param) =>
+        sender ! param * 2
     }
 
     override def postStop(): Unit = {
