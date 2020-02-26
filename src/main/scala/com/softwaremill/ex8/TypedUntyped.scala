@@ -4,6 +4,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.actor.typed.scaladsl.adapter._
+import com.softwaremill.ex8.Worker.DoPartialWork
 
 sealed trait Command
 case class DoWork(param: Int)                extends Command
@@ -15,10 +16,14 @@ object TypedUntyped {
     .setup[Command] { context =>
       context.log.info("Parent setup")
       val workerChild = context.actorOf(Worker.props, "worker")
+      val workerResponseMapper: ActorRef[Worker.PartialWorkResponse] =
+        context.messageAdapter {
+          case Worker.PartialWorkResult(param) => HandleWorkerResponse(param)
+        }
 
       Behaviors.receiveMessage {
         case DoWork(param) =>
-          // TODO
+          workerChild.tell(DoPartialWork(param), workerResponseMapper.toClassic)
           Behaviors.same
 
         case HandleWorkerResponse(result) =>
@@ -42,7 +47,7 @@ object Worker {
 
     override def receive = {
       case DoPartialWork(param) =>
-        sender ! param * 2
+        sender ! PartialWorkResult(param * 2)
     }
 
     override def postStop(): Unit = {
