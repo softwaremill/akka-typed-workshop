@@ -2,13 +2,14 @@ package com.softwaremill.ex9
 
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, StashBuffer}
 import akka.actor.typed.{scaladsl, Behavior}
-import com.softwaremill.ex9.RoutingBehavior.{ConfigLoaded, ConfigLoadingFailed, RoutingCommand, SendMessage}
+import com.softwaremill.ex9.RoutingBehavior.{ConfigLoaded, ConfigLoadingFailed, ReloadConfig, RoutingCommand, SendMessage}
 
 import scala.util.{Failure, Success}
 
 object RoutingBehavior {
   trait RoutingCommand
   case class SendMessage(destination: String, payload: String) extends RoutingCommand
+  object ReloadConfig                                          extends RoutingCommand
   case class ConfigLoaded(config: Map[String, String])         extends RoutingCommand
   case class ConfigLoadingFailed(cause: Throwable)             extends RoutingCommand
 
@@ -45,7 +46,7 @@ class RoutingBehavior(
     }
   }
 
-  def startRouting(config: Map[String, String]): Behavior[RoutingCommand] = {
+  private def startRouting(config: Map[String, String]): Behavior[RoutingCommand] = {
     Behaviors.receiveMessage[RoutingCommand] {
       case SendMessage(destination, _) =>
         config.get(destination) match {
@@ -53,6 +54,7 @@ class RoutingBehavior(
           case None                     => log.info("Sending message to {}", destination)
         }
         Behaviors.same
+      case ReloadConfig => init()
     }
   }
 }

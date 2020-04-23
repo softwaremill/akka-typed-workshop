@@ -1,7 +1,7 @@
 package com.softwaremill.ex9
 
 import akka.actor.testkit.typed.scaladsl.{LoggingTestKit, ScalaTestWithActorTestKit}
-import com.softwaremill.ex9.RoutingBehavior.SendMessage
+import com.softwaremill.ex9.RoutingBehavior.{ReloadConfig, SendMessage}
 import org.scalatest.flatspec.AnyFlatSpecLike
 
 class RoutingBehaviorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike {
@@ -58,7 +58,7 @@ class RoutingBehaviorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike
 
     // when // then
     LoggingTestKit.info(s"Sending message to $updatedDestination").withOccurrences(3).expect {
-      //TODO
+      router ! ReloadConfig
       router ! SendMessage(originalDestination, "payload1")
       router ! SendMessage(originalDestination, "payload1")
       router ! SendMessage(originalDestination, "payload1")
