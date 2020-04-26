@@ -1,6 +1,6 @@
 package com.softwaremill.ex10
 
-import akka.actor.typed.Behavior
+import akka.actor.typed.{Behavior, DispatcherSelector}
 import akka.actor.typed.scaladsl.Behaviors
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -21,7 +21,8 @@ object SlowBlockingActor {
 
   def apply(): Behavior[Int] =
     Behaviors.setup { context =>
-      implicit val executionContext: ExecutionContext = context.executionContext
+      implicit val executionContext: ExecutionContext =
+        context.system.dispatchers.lookup(DispatcherSelector.fromConfig("my-blocking-dispatcher"))
 
       Behaviors.receiveMessage { i =>
         triggerFutureBlockingOperation(i)
