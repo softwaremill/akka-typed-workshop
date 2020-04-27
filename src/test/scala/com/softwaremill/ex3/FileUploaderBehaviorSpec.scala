@@ -2,7 +2,7 @@ package com.softwaremill.ex3
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import com.softwaremill.ex2.FileManager
-import com.softwaremill.ex3.FileUploaderBehavior.{GetStatus, Response, UploadFile}
+import com.softwaremill.ex3.FileUploaderBehavior.{GetStatus, Response, UploadFile, UploadStatusResponse}
 import org.scalatest.flatspec.AnyFlatSpecLike
 
 class FileUploaderBehaviorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike {
@@ -12,7 +12,7 @@ class FileUploaderBehaviorSpec extends ScalaTestWithActorTestKit with AnyFlatSpe
 
   it should "respond after uploading file" in {
     // given
-    val uploader = testKit.spawn(FileUploaderBehavior.waitingForStart(fileManager))
+    val uploader = testKit.spawn(FileUploaderBehavior(fileManager))
     val probe    = createTestProbe[Response]()
 
     // when
@@ -24,7 +24,7 @@ class FileUploaderBehaviorSpec extends ScalaTestWithActorTestKit with AnyFlatSpe
 
   it should "get status while uploading" in {
     // given
-    val uploader = testKit.spawn(FileUploaderBehavior.waitingForStart(fileManager))
+    val uploader = testKit.spawn(FileUploaderBehavior(fileManager))
     val probe    = createTestProbe[Response]()
     uploader ! UploadFile(probe.ref)
 
@@ -37,7 +37,7 @@ class FileUploaderBehaviorSpec extends ScalaTestWithActorTestKit with AnyFlatSpe
 
   it should "get status when not started" in {
     // given
-    val uploader = testKit.spawn(FileUploaderBehavior.waitingForStart(fileManager))
+    val uploader = testKit.spawn(FileUploaderBehavior(fileManager))
     val probe    = createTestProbe[Response]()
 
     // when
@@ -49,8 +49,8 @@ class FileUploaderBehaviorSpec extends ScalaTestWithActorTestKit with AnyFlatSpe
 
   it should "not start only one upload at the same time" in {
     // given
-    val uploader = testKit.spawn(FileUploaderBehavior.waitingForStart(fileManager))
-    val probe    = createTestProbe[Response]()
+    val uploader = testKit.spawn(FileUploaderBehavior(fileManager))
+    val probe    = createTestProbe[UploadStatusResponse]()
 
     // when
     uploader ! UploadFile(probe.ref)
@@ -64,8 +64,8 @@ class FileUploaderBehaviorSpec extends ScalaTestWithActorTestKit with AnyFlatSpe
 
   it should "get status after file is uploaded" in {
     // given
-    val uploader    = testKit.spawn(FileUploaderBehavior.waitingForStart(fileManager))
-    val probe       = createTestProbe[Response]()
+    val uploader    = testKit.spawn(FileUploaderBehavior(fileManager))
+    val probe       = createTestProbe[UploadStatusResponse]()
     val statusProbe = createTestProbe[Response]()
     uploader ! UploadFile(probe.ref)
 
@@ -80,8 +80,8 @@ class FileUploaderBehaviorSpec extends ScalaTestWithActorTestKit with AnyFlatSpe
 
   it should "start next upload when the first is done" in {
     // given
-    val uploader = testKit.spawn(FileUploaderBehavior.waitingForStart(fileManager))
-    val probe    = createTestProbe[Response]()
+    val uploader = testKit.spawn(FileUploaderBehavior(fileManager))
+    val probe    = createTestProbe[UploadStatusResponse]()
 
     // when
     uploader ! UploadFile(probe.ref)
