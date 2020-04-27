@@ -9,11 +9,11 @@ class SquareRootCalculatorSpec extends ScalaTestWithActorTestKit with AnyFlatSpe
 
   it should "calculate sqrt for positive integer" in {
     // given
-    val calculator                   = ???
-    val probe: TestProbe[SqrtResult] = ???
+    val calculator                   = spawn(SquareRootCalculator())
+    val probe: TestProbe[SqrtResult] = createTestProbe[SqrtResult]()
 
     // when
-    calculator //TODO
+    calculator ! Calculate(4, probe.ref)
 
     // then
     probe.expectMessage(SqrtResult.Result(2))
@@ -21,11 +21,11 @@ class SquareRootCalculatorSpec extends ScalaTestWithActorTestKit with AnyFlatSpe
 
   it should "return error for negative integer" in {
     // given
-    val calculator                   = ???
-    val probe: TestProbe[SqrtResult] = ???
+    val calculator                   = spawn(SquareRootCalculator())
+    val probe: TestProbe[SqrtResult] = createTestProbe[SqrtResult]()
 
     // when
-    calculator //TODO
+    calculator ! Calculate(-2, probe.ref)
 
     // then
     probe.expectMessageType[SqrtResult.Error]
@@ -33,12 +33,12 @@ class SquareRootCalculatorSpec extends ScalaTestWithActorTestKit with AnyFlatSpe
 
   it should "log message warn message in case of negative integer" in {
     // given
-    val calculator = ???
-    val probe      = ???
+    val calculator = spawn(SquareRootCalculator())
+    val probe      = createTestProbe[SqrtResult]()
 
     // when then
     LoggingTestKit.warn("Negative integer!").expect {
-      calculator //TODO
+      calculator ! Calculate(-2, probe.ref)
     }
   }
 }
