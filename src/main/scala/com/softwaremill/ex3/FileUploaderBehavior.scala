@@ -18,7 +18,7 @@ object FileUploaderBehavior {
   case object UploadingNotStarted extends Response
 
   def waitingForStart(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
-    Behaviors.receiveMessage {
+    Behaviors.receiveMessagePartial {
       case UploadFile(replyTo) =>
         startUpload(context, replyTo, fileManager)
       case GetStatus(replyTo) =>
@@ -48,7 +48,7 @@ object FileUploaderBehavior {
   }
 
   def uploadingFinished(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
-    Behaviors.receiveMessage {
+    Behaviors.receiveMessagePartial {
       case GetStatus(replyTo) =>
         replyTo ! FileUploaded
         waitingForStart(fileManager)
