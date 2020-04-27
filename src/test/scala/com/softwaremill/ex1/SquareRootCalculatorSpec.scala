@@ -33,12 +33,12 @@ class SquareRootCalculatorSpec extends ScalaTestWithActorTestKit with AnyFlatSpe
 
   it should "log message warn message in case of negative integer" in {
     // given
-    val calculator = ???
-    val probe      = ???
+    val calculator = spawn(SquareRootCalculator())
+    val probe      = createTestProbe[SqrtResult]
 
     // when then
     LoggingTestKit.warn("Negative integer!").expect {
-      calculator //TODO
+      calculator ! Calculate(-1, probe.ref)
     }
   }
 }
