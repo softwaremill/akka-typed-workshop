@@ -18,11 +18,17 @@ object FileUploaderBehavior {
   case object FileUploaded        extends FileUploadResponse
   case object UploadingNotStarted extends Response
 
-  def waitingForStart(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
+  def waitingForStart(fileManager: FileManager): Behavior[Command] = new FileUploaderBehavior(fileManager).waitingForStart()
+}
+
+class FileUploaderBehavior(fileManager: FileManager) {
+  import FileUploaderBehavior._
+
+  def waitingForStart(): Behavior[Command] = Behaviors.setup { context =>
     Behaviors.receiveMessage {
       case UploadFile(replyTo) =>
         startUpload(fileManager, context)
-        uploadingInProgress(replyTo, fileManager)
+        uploadingInProgress(replyTo)
       case GetStatus(replyTo) =>
         replyTo ! UploadingNotStarted
         Behaviors.same
@@ -31,10 +37,10 @@ object FileUploaderBehavior {
     }
   }
 
-  private def uploadingInProgress(replyTo: ActorRef[FileUploadResponse], fileManager: FileManager): Behavior[Command] = Behaviors.receiveMessage {
+  private def uploadingInProgress(replyTo: ActorRef[FileUploadResponse]): Behavior[Command] = Behaviors.receiveMessage {
     case FinishUploading =>
       replyTo ! FileUploaded
-      uploadingFinished(fileManager)
+      uploadingFinished()
     case UploadFile(replyTo) =>
       replyTo ! UploadingInProgress
       Behaviors.same
@@ -43,14 +49,14 @@ object FileUploaderBehavior {
       Behaviors.same
   }
 
-  private def uploadingFinished(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
+  private def uploadingFinished(): Behavior[Command] = Behaviors.setup { context =>
     Behaviors.receiveMessagePartial {
       case GetStatus(replyTo) =>
         replyTo ! FileUploaded
         Behaviors.same
       case UploadFile(replyTo) =>
         startUpload(fileManager, context)
-        uploadingInProgress(replyTo, fileManager)
+        uploadingInProgress(replyTo)
     }
   }
 
@@ -60,4 +66,5 @@ object FileUploaderBehavior {
       case Failure(exception) => throw exception //some error handling here
     }
   }
+
 }
