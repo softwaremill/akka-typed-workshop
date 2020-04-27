@@ -9,5 +9,9 @@ object FileUploaderBehavior {
   case class UploadFile(replyTo: ActorRef[FileUploaded])
   case class FileUploaded()
 
-  def uploaderBehavior(fileManager: FileManager): Behavior[UploadFile] = ???
+  def uploaderBehavior(fileManager: FileManager): Behavior[UploadFile] = Behaviors.receiveMessage {
+    case UploadFile(sender) =>
+      fileManager.startUpload().map(_ => sender ! FileUploaded())
+      Behaviors.same
+  }
 }
