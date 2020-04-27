@@ -2,12 +2,14 @@ package com.softwaremill.ex4
 
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed._
+import com.softwaremill.ex4.Worker.{PartialWorkResponse, PartialWorkResult}
 
 object SupervisedBehavior {
   type SignalHandler[T] = PartialFunction[(ActorContext[T], Signal), Behavior[T]]
 
   sealed trait Command
   case class Request(param: Int, replyTo: ActorRef[ParentResult]) extends Command
+  private case class Adapted(response: PartialWorkResponse) extends Command
 
   sealed trait ParentResult
   case class Response(param: Int)      extends ParentResult
@@ -17,14 +19,15 @@ object SupervisedBehavior {
     Behaviors
       .setup { context =>
         context.log.info("Parent setup")
-        val worker: ActorRef[Worker.DoPartialWork] = ???
+        val worker: ActorRef[Worker.DoPartialWork] = context.spawn(Worker.behavior, "worker")
+        val adapter: ActorRef[Worker.PartialWorkResponse] = context.messageAdapter(Adapted)
 
         lazy val handleRequests: Behavior[Command] =
           Behaviors
             .receiveMessage[Command] {
               case Request(param, replyTo) =>
                 context.log.info(s"Delegating work ($param) to a child actor")
-                worker ! Worker.DoPartialWork(param, ???)
+                worker ! Worker.DoPartialWork(param, adapter)
                 working(replyTo)
             }
 
@@ -34,6 +37,9 @@ object SupervisedBehavior {
               case Request(param, _) =>
                 context.log.error(s"Cannot handle request ($param) while worker is busy!")
                 respondTo ! ParentFailure(param)
+                Behaviors.same
+              case Adapted(PartialWorkResult(result)) =>
+                respondTo ! Response(result)
                 Behaviors.same
             }
 
