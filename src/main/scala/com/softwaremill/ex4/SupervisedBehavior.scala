@@ -21,7 +21,7 @@ object SupervisedBehavior {
     Behaviors
       .setup { context =>
         context.log.info("Parent setup")
-        val worker = context.spawn(Worker.behavior, "worker")
+        val worker = context.spawn(Behaviors.supervise(Worker.behavior).onFailure(SupervisorStrategy.resume), "worker")
         val workerResponseMapper: ActorRef[Worker.PartialWorkResponse] =
           context.messageAdapter {
             case Worker.PartialWorkResult(param) => HandleWorkerResponse(param)
