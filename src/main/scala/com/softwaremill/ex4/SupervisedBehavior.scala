@@ -1,29 +1,35 @@
 package com.softwaremill.ex4
 
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed._
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 
 object SupervisedBehavior {
   type SignalHandler[T] = PartialFunction[(ActorContext[T], Signal), Behavior[T]]
 
   sealed trait Command
+
   case class Request(param: Int, replyTo: ActorRef[ParentResult]) extends Command
 
-  private sealed trait HandleWorkerResult         extends Command
+  private sealed trait HandleWorkerResult extends Command
+
   private case class HandleWorkerResponse(i: Int) extends HandleWorkerResult
-  private case class HandleWorkerFailure(i: Int)  extends HandleWorkerResult
+
+  private case class HandleWorkerFailure(i: Int) extends HandleWorkerResult
 
   sealed trait ParentResult
-  case class Response(param: Int)      extends ParentResult
+
+  case class Response(param: Int) extends ParentResult
+
   case class ParentFailure(param: Int) extends ParentResult
 
   lazy val behavior: Behavior[Command] =
-    Behaviors
+    Behaviors.supervise[Command](Behaviors
       .setup { context =>
-        val workerBehavior = Behaviors.supervise(Worker.behavior).onFailure(SupervisorStrategy.restart)
+        val workerBehavior = Worker.behavior
         context.log.info("Parent setup")
 
         val worker = context.spawn(workerBehavior, "worker")
+        context.watch(worker)
 
         val workerResponseMapper: ActorRef[Worker.PartialWorkResponse] =
           context.messageAdapter {
@@ -33,7 +39,7 @@ object SupervisedBehavior {
 
         lazy val handleRequests: Behavior[Command] =
           Behaviors
-            .receiveMessage {
+            .receiveMessage[Command] {
               case Request(param, replyTo) =>
                 context.log.info(s"Delegating work ($param) to a child actor")
                 worker ! Worker.DoPartialWork(param, workerResponseMapper)
@@ -42,6 +48,13 @@ object SupervisedBehavior {
                 context.log.error(s"Unexpected result when parent actor is idle: $r")
                 Behaviors.same
             }
+            .receiveSignal {
+              case (context, PostStop) => context.log.info("Stop parent actor")
+                Behaviors.same
+              case (context, PreRestart) => context.log.info("Restarting parent actor")
+                Behaviors.same
+            }
+
 
         def working(respondTo: ActorRef[ParentResult]): Behavior[Command] =
           Behaviors
@@ -59,15 +72,18 @@ object SupervisedBehavior {
             }
 
         handleRequests
-      }
+      })
+      .onFailure[DeathPactException](SupervisorStrategy.restart)
 }
 
 object Worker {
+
   case class DoPartialWork(param: Int, replyTo: ActorRef[PartialWorkResponse])
 
   sealed trait PartialWorkResponse
 
   case class PartialWorkResult(param: Int) extends PartialWorkResponse
+
   case class PartialWorkFailed(param: Int) extends PartialWorkResponse
 
   // Should multiply input by 2
