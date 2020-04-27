@@ -12,7 +12,7 @@ object Adder {
       .receiveMessage[Add] {
         case Add(a, b, replyTo) =>
           replyTo ! Result(a + b)
-          Behaviors.same
+          Behaviors.stopped
       }
       .receiveSignal {
         case (context, PostStop) =>
