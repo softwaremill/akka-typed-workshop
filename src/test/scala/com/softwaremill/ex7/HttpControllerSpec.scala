@@ -1,6 +1,7 @@
 package com.softwaremill.ex7
 
 import akka.actor.typed.ActorSystem
+import akka.actor.typed.receptionist.Receptionist
 import akka.actor.typed.scaladsl.Behaviors
 import com.softwaremill.ex7.HttpController.{Request, Response}
 import org.scalatest.BeforeAndAfterAll
@@ -11,7 +12,8 @@ import org.scalatest.matchers.should.Matchers
 class HttpControllerSpec extends AnyFlatSpecLike with Matchers with ScalaFutures with BeforeAndAfterAll with Eventually {
 
   implicit private val system: ActorSystem[Nothing] = ActorSystem(Behaviors.setup[Unit] { ctx =>
-    ctx.spawn(Adder(), "adder")
+    val adder = ctx.spawn(Adder(), "adder")
+    ctx.system.receptionist ! Receptionist.Register(Adder.AdderKey, adder)
     Behaviors.empty
   }, "test-as")
   private val httpController = new HttpController(system)
