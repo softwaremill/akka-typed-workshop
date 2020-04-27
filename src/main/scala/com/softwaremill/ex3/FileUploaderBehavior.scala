@@ -3,6 +3,7 @@ package com.softwaremill.ex3
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import com.softwaremill.ex2.FileManager
+import com.softwaremill.ex3.FileUploaderBehavior.{Command, FinishUploading, GetStatus, Response, UploadFile}
 
 import scala.util.{Failure, Success}
 
@@ -17,7 +18,14 @@ object FileUploaderBehavior {
   case object FileUploaded        extends Response
   case object UploadingNotStarted extends Response
 
-  def waitingForStart(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
+  def waitingForStart(fileManager: FileManager): Behavior[Command] =
+    new FileUploaderBehavior(fileManager).waitingForStart(false)
+}
+
+class FileUploaderBehavior(fileManager: FileManager) {
+  import FileUploaderBehavior._
+
+  def waitingForStart(uploadedSomething: Boolean): Behavior[Command] = Behaviors.setup { context =>
     Behaviors.receiveMessage {
       case UploadFile(replyTo) =>
         context.pipeToSelf(fileManager.startUpload()) {
@@ -26,7 +34,7 @@ object FileUploaderBehavior {
         }
         uploadingInProgress(replyTo)
       case GetStatus(replyTo) =>
-        replyTo ! UploadingNotStarted
+        replyTo ! (if (uploadedSomething) FileUploaded else UploadingNotStarted)
         Behaviors.same
     }
   }
@@ -34,18 +42,12 @@ object FileUploaderBehavior {
   def uploadingInProgress(replyTo: ActorRef[Response]): Behavior[Command] = Behaviors.receiveMessage {
     case FinishUploading =>
       replyTo ! FileUploaded
-      uploadingFinished()
+      waitingForStart(true)
     case UploadFile(replyTo) =>
       replyTo ! UploadingInProgress
       Behaviors.same
     case GetStatus(replyTo) =>
       replyTo ! UploadingInProgress
-      Behaviors.same
-  }
-
-  def uploadingFinished(): Behavior[Command] = Behaviors.receiveMessage {
-    case GetStatus(replyTo) =>
-      replyTo ! FileUploaded
       Behaviors.same
   }
 }
