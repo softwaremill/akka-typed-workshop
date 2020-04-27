@@ -10,15 +10,15 @@ class FileUploaderActor(fileManager: FileManager) extends Actor {
 
   override def receive: Receive = {
     case UploadFile =>
-      fileManager.startUpload().map { _ =>
-        sender() ! FileUploaded //ERROR invoking sender() method in Future callback
-      }
+//      fileManager.startUpload().map { _ =>
+//        sender() ! FileUploaded //ERROR invoking sender() method in Future callback
+//      }
 
 //      corrected version
-//      val currentSender = sender()
-//      fileManager.startUpload().map { _ =>
-//        currentSender ! FileUploaded
-//      }
+      val currentSender = sender()
+      fileManager.startUpload().map { _ =>
+        currentSender ! FileUploaded
+      }
 
 //      corrected version with pipe pattern
 //      fileManager.startUpload().map(_ => FileUploaded).pipeTo(sender())
