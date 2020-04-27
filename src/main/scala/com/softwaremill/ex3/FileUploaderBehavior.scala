@@ -1,6 +1,6 @@
 package com.softwaremill.ex3
 
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import com.softwaremill.ex2.FileManager
 
@@ -24,28 +24,35 @@ object FileUploaderBehavior {
           case Success(_)         => FinishUploading
           case Failure(exception) => throw exception //some error handling here
         }
-        uploadingInProgress(replyTo)
+        uploadingInProgress(fileManager, context, replyTo)
       case GetStatus(replyTo) =>
         replyTo ! UploadingNotStarted
         Behaviors.same
     }
   }
 
-  def uploadingInProgress(replyTo: ActorRef[Response]): Behavior[Command] = Behaviors.receiveMessage {
-    case FinishUploading =>
-      replyTo ! FileUploaded
-      uploadingFinished()
-    case UploadFile(replyTo) =>
-      replyTo ! UploadingInProgress
-      Behaviors.same
-    case GetStatus(replyTo) =>
-      replyTo ! UploadingInProgress
-      Behaviors.same
-  }
+  def uploadingInProgress(fileManager: FileManager, context: ActorContext[Command], replyTo: ActorRef[Response]): Behavior[Command] =
+    Behaviors.receiveMessage {
+      case FinishUploading =>
+        replyTo ! FileUploaded
+        uploadingFinished(fileManager, context)
+      case UploadFile(replyTo) =>
+        replyTo ! UploadingInProgress
+        Behaviors.same
+      case GetStatus(replyTo) =>
+        replyTo ! UploadingInProgress
+        Behaviors.same
+    }
 
-  def uploadingFinished(): Behavior[Command] = Behaviors.receiveMessage {
+  def uploadingFinished(fileManager: FileManager, context: ActorContext[Command]): Behavior[Command] = Behaviors.receiveMessage {
     case GetStatus(replyTo) =>
       replyTo ! FileUploaded
       Behaviors.same
+    case UploadFile(replyTo) =>
+      context.pipeToSelf(fileManager.startUpload()) {
+        case Success(_)         => FinishUploading
+        case Failure(exception) => throw exception //some error handling here
+      }
+      uploadingInProgress(fileManager, context, replyTo)
   }
 }
