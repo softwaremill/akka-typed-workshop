@@ -1,6 +1,6 @@
 package com.softwaremill.ex3
 
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import com.softwaremill.ex2.FileManager
 
@@ -20,21 +20,25 @@ object FileUploaderBehavior {
   def waitingForStart(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
     Behaviors.receiveMessage {
       case UploadFile(replyTo) =>
-        context.pipeToSelf(fileManager.startUpload()) {
-          case Success(_)         => FinishUploading
-          case Failure(exception) => throw exception //some error handling here
-        }
-        uploadingInProgress(replyTo)
+        startUpload(context, replyTo, fileManager)
       case GetStatus(replyTo) =>
         replyTo ! UploadingNotStarted
         Behaviors.same
     }
   }
 
-  def uploadingInProgress(replyTo: ActorRef[Response]): Behavior[Command] = Behaviors.receiveMessage {
+  private def startUpload(context: ActorContext[Command], replyTo: ActorRef[Response], fileManager: FileManager) = {
+    context.pipeToSelf(fileManager.startUpload()) {
+      case Success(_) => FinishUploading
+      case Failure(exception) => throw exception //some error handling here
+    }
+    uploadingInProgress(replyTo, fileManager)
+  }
+
+  def uploadingInProgress(replyTo: ActorRef[Response], fileManager: FileManager): Behavior[Command] = Behaviors.receiveMessage {
     case FinishUploading =>
       replyTo ! FileUploaded
-      uploadingFinished()
+      uploadingFinished(fileManager)
     case UploadFile(replyTo) =>
       replyTo ! UploadingInProgress
       Behaviors.same
@@ -43,9 +47,13 @@ object FileUploaderBehavior {
       Behaviors.same
   }
 
-  def uploadingFinished(): Behavior[Command] = Behaviors.receiveMessage {
-    case GetStatus(replyTo) =>
-      replyTo ! FileUploaded
-      Behaviors.same
+  def uploadingFinished(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
+    Behaviors.receiveMessage {
+      case GetStatus(replyTo) =>
+        replyTo ! FileUploaded
+        waitingForStart(fileManager)
+      case UploadFile(replyTo) =>
+        startUpload(context, replyTo, fileManager)
+    }
   }
 }
