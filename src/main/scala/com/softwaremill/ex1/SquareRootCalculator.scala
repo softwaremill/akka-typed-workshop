@@ -1,11 +1,21 @@
 package com.softwaremill.ex1
 
-import akka.actor.typed.Behavior
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Behavior}
+import com.softwaremill.ex1.SquareRootCalculator.SqrtResult.{Error, Result}
 
 object SquareRootCalculator {
-  def apply(): Behavior[Calculate] = ???
 
-  case class Calculate() //TODO add required fields
+  def apply(): Behavior[Calculate] = Behaviors.receiveMessage {
+    case Calculate(number, replyTo) =>
+      if (number < 0) replyTo ! Error("Sqrt of number < 0")
+      else {
+        replyTo ! Result(Math.sqrt(number))
+      }
+      Behaviors.same
+  }
+
+  case class Calculate(number: Double, replyTo: ActorRef[SqrtResult])
 
   sealed trait SqrtResult
 
