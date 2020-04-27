@@ -12,7 +12,7 @@ object FileUploaderBehavior {
 
   case class UploadFile(replyTo: ActorRef[Response]) extends Command
   case class GetStatus(replyTo: ActorRef[Response]) extends Command
-  case object FinishUploading extends Command
+  private case object FinishUploading extends Command
 
   sealed trait Response
 
@@ -27,28 +27,39 @@ object FileUploaderBehavior {
       case GetStatus(replyTo) =>
         replyTo ! UploadingNotStarted
         Behaviors.same
+      case otherMsg =>
+        context.log.warn("Received unexpected msg in state waitingForStart: " + otherMsg)
+        Behaviors.ignore
     }
   }
 
-  def uploadingInProgress(replyTo: ActorRef[Response], fileManager: FileManager): Behavior[Command] = Behaviors.receiveMessage {
-    case FinishUploading =>
-      replyTo ! FileUploaded
-      uploadingFinished(fileManager)
-    case UploadFile(replyTo) =>
-      replyTo ! UploadingInProgress
-      Behaviors.same
-    case GetStatus(replyTo) =>
-      replyTo ! UploadingInProgress
-      Behaviors.same
+  private def uploadingInProgress(replyTo: ActorRef[Response], fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
+    Behaviors.receiveMessage {
+      case FinishUploading =>
+        replyTo ! FileUploaded
+        uploadingFinished(fileManager)
+      case UploadFile(replyTo) =>
+        replyTo ! UploadingInProgress
+        Behaviors.same
+      case GetStatus(replyTo) =>
+        replyTo ! UploadingInProgress
+        Behaviors.same
+      case otherMsg =>
+        context.log.warn("Received unexpected msg in state uploadingInProgress: " + otherMsg)
+        Behaviors.ignore
+    }
   }
 
-  def uploadingFinished(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
+  private def uploadingFinished(fileManager: FileManager): Behavior[Command] = Behaviors.setup { context =>
     Behaviors.receiveMessage {
       case GetStatus(replyTo) =>
         replyTo ! FileUploaded
         Behaviors.same
       case UploadFile(replyTo) =>
         uploadAndTransitStateToInProgress(fileManager, context, replyTo)
+      case otherMsg =>
+        context.log.warn("Received unexpected msg in state uploadingFinished: " + otherMsg)
+        Behaviors.ignore
     }
   }
 
