@@ -1,7 +1,7 @@
 package com.softwaremill.ex4
 
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed._
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 
 object SupervisedBehavior {
   type SignalHandler[T] = PartialFunction[(ActorContext[T], Signal), Behavior[T]]
@@ -19,47 +19,56 @@ object SupervisedBehavior {
 
   lazy val behavior: Behavior[Command] =
     Behaviors
-      .setup { context =>
-        val workerBehavior = Behaviors.supervise(Worker.behavior).onFailure(SupervisorStrategy.restart)
-        context.log.info("Parent setup")
+      .supervise {
+        Behaviors
+          .setup[Command] { context =>
+            context.log.info("Parent setup")
 
-        val worker = context.spawn(workerBehavior, "worker")
+            val worker = context.spawn(Worker.behavior, "worker")
+            context.watch(worker)
 
-        val workerResponseMapper: ActorRef[Worker.PartialWorkResponse] =
-          context.messageAdapter {
-            case Worker.PartialWorkResult(param) => HandleWorkerResponse(param)
-            case Worker.PartialWorkFailed(param) => HandleWorkerFailure(param)
+            val workerResponseMapper: ActorRef[Worker.PartialWorkResponse] =
+              context.messageAdapter {
+                case Worker.PartialWorkResult(param) => HandleWorkerResponse(param)
+                case Worker.PartialWorkFailed(param) => HandleWorkerFailure(param)
+              }
+
+            lazy val handleRequests: Behavior[Command] =
+              Behaviors
+                .receiveMessage[Command] {
+                  case Request(param, replyTo) =>
+                    context.log.info(s"Delegating work ($param) to a child actor")
+                    worker ! Worker.DoPartialWork(param, workerResponseMapper)
+                    working(replyTo)
+                  case r: HandleWorkerResult =>
+                    context.log.error(s"Unexpected result when parent actor is idle: $r")
+                    Behaviors.same
+                }
+                .receiveSignal {
+                  case (_, PreRestart) =>
+                    context.log.info("Restarting parent actor")
+                    Behaviors.same
+                }
+
+            def working(respondTo: ActorRef[ParentResult]): Behavior[Command] =
+              Behaviors
+                .receiveMessage[Command] {
+                  case HandleWorkerResponse(i) =>
+                    respondTo ! Response(i)
+                    handleRequests
+                  case HandleWorkerFailure(i) =>
+                    respondTo ! ParentFailure(i)
+                    handleRequests
+                  case Request(param, _) =>
+                    context.log.error(s"Cannot handle request ($param) while worker is busy!")
+                    respondTo ! ParentFailure(param)
+                    Behaviors.same
+                }
+
+            handleRequests
           }
-
-        lazy val handleRequests: Behavior[Command] =
-          Behaviors
-            .receiveMessage {
-              case Request(param, replyTo) =>
-                context.log.info(s"Delegating work ($param) to a child actor")
-                worker ! Worker.DoPartialWork(param, workerResponseMapper)
-                working(replyTo)
-              case r: HandleWorkerResult =>
-                context.log.error(s"Unexpected result when parent actor is idle: $r")
-                Behaviors.same
-            }
-
-        def working(respondTo: ActorRef[ParentResult]): Behavior[Command] =
-          Behaviors
-            .receiveMessage {
-              case HandleWorkerResponse(i) =>
-                respondTo ! Response(i)
-                handleRequests
-              case HandleWorkerFailure(i) =>
-                respondTo ! ParentFailure(i)
-                handleRequests
-              case Request(param, _) =>
-                context.log.error(s"Cannot handle request ($param) while worker is busy!")
-                respondTo ! ParentFailure(param)
-                Behaviors.same
-            }
-
-        handleRequests
       }
+      .onFailure[DeathPactException](SupervisorStrategy.restart)
 }
 
 object Worker {
