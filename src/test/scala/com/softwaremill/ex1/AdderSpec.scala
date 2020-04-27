@@ -20,10 +20,4 @@ class AdderSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike {
     // then
     probe.expectMessage(Result(5))
   }
-
-  it should "sqrt" in {
-    // given
-    val x = Math.sqrt(-5)
-    x shouldEqual 2
-  }
 }
