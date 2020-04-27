@@ -25,6 +25,8 @@ object FileUploaderBehavior {
       case GetStatus(replyTo) =>
         replyTo ! UploadingNotStarted
         Behaviors.same
+      case FinishUploading =>
+        Behaviors.ignore
     }
   }
 
@@ -48,6 +50,8 @@ object FileUploaderBehavior {
       case UploadFile(replyTo) =>
         startUpload(fileManager, context)
         uploadingInProgress(replyTo, fileManager)
+      case FinishUploading =>
+        Behaviors.ignore
     }
   }
 
